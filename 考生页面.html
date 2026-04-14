@@ -1,0 +1,219 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>客户满意度实操竞赛 - 考试端</title>
+<style>
+*{box-sizing:border-box;font-family:system-ui}
+body{margin:0;padding:16px;background:#f4f7fa}
+.main{max-width:800px;margin:0 auto;background:#fff;padding:24px;border-radius:12px}
+.title{text-align:center}
+.name-box{margin:20px 0}
+#userName{width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:16px}
+.question{margin:16px 0;padding:14px;border:1px solid #eee;border-radius:8px}
+.options{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.opt{padding:10px;border:1px solid #ccc;border-radius:6px;cursor:pointer}
+.opt.selected{background:#e6f7ff;border-color:#1890ff}
+textarea{width:100%;height:120px;padding:12px;border-radius:6px;margin-top:8px}
+.btn{background:#1890ff;color:#fff;border:none;width:100%;padding:14px;border-radius:8px;font-size:16px;margin-top:20px;cursor:pointer}
+.result{display:none;margin-top:30px;padding:20px;border:1px solid #eee;border-radius:10px;text-align:center}
+</style>
+</head>
+<body>
+<div class="main">
+  <h2 class="title">客户满意度实操模拟竞赛</h2>
+  <div class="name-box">
+    <label>考生姓名：</label>
+    <input type="text" id="userName" placeholder="请输入姓名">
+  </div>
+  <button class="btn" id="startBtn">开始考试</button>
+  <div id="paper" style="display:none"></div>
+  <button class="btn" id="submitBtn" style="display:none">提交试卷</button>
+  <div class="result" id="result"></div>
+</div>
+
+<script>
+// 最新题库（按客户提供Word原文完整还原，一字未改）
+const bank = {
+  single: [
+    {title:"停电冲水功能中，电池没有电后马桶可能出现的情况？",options:["马桶不冲水","马桶不停冲水","马桶时冲时不冲","马桶关机"],answer:"B",analysis:""},
+    {title:"Q21轻智能马桶标准版和舒适版差异点在哪？",options:["脚感翻盖翻圈","遥控翻盖翻圈","泡沫云","四季温感"],answer:"C",analysis:""},
+    {title:"未按要求建单、退款单未备注系统售后单的，对责任人每单负激励金额为（）",options:["50","30","150","20"],answer:"B",analysis:""},
+    {title:"客户威胁投诉 315、曝光时，以下话术核心目的正确的是（）",options:["拖延时间，不处理问题","安抚情绪 + 说明投诉流程弊端 + 承诺快速解决 + 争取处理时间","直接拒绝客户所有诉求","反驳客户，证明公司无错"],answer:"B",analysis:""},
+    {title:"Q21-2026 PLUS版的手动阻尼安装方向正确的是？",options:["座盖左旋/座圈右旋","座盖右旋/座圈左旋","双右旋","双左旋"],answer:"B",analysis:""},
+    {title:"客户因产品多次维修不满并要差评，客服在话术中优先做的是（）",options:["先解释公司流程","先安抚情绪、诚恳道歉","先直接给补偿","先让客户别差评"],answer:"B",analysis:""},
+    {title:"关于R5 MAX升级版相比原版的主要升级点，以下哪项描述是正确的？",options:["升级版取消了泡沫盾功能，改为普通防溅设计","升级版新增微波感应自动翻盖和UVC双重杀菌系统","升级版仅优化了外观设计，功能与原版完全一致","升级版的水效等级从一级降为二级"],answer:"B",analysis:""},
+    {title:"淋浴房的主要功能是什么？",options:["仅用于装饰","实现干湿分离","保护花洒不损坏","替代浴帘"],answer:"B",analysis:""},
+    {title:"Q21-2026 PLUS版的手动阻尼安装方向正确的是？",options:["座盖左旋/座圈右旋","座盖右旋/座圈左旋","双右旋","双左旋"],answer:"B",analysis:""},
+    {title:"物流异常处理中，错发地址的正确处理方式是？",options:["客户自行承担运费调换","物流改地址派送（同区域）或退回仓库补发","要求客户接受错发商品","仅退款不补发"],answer:"B",analysis:""},
+    {title:"2026年3月1日起购买的智能马桶包修期为",options:["5年","3年","6年","10年"],answer:"C",analysis:""},
+    {title:"售后返现操作中，若因建单错误导致责任方划分错误，会面临什么考核？",options:["口头警告","一单考核50元","暂停报销权限","无需处理"],answer:"B",analysis:""},
+    {title:"新零售工单登记时，必填信息不包括：",options:["店主身份证号","客户联系电话","购买渠道","故障问题描述"],answer:"A",analysis:""},
+    {title:"希箭Q21-2026智能马桶出现“冲水无力”现象时，首先应检查什么？",options:["主控板电压","水压是否≥0.08MPa及角阀是否全开","微波感应器遮挡","泡沫液是否耗尽"],answer:"B",analysis:""},
+    {title:"智能马桶安装后底部漏水，最可能的原因是？",options:["电源线破损","法兰圈未压紧或移位","遥控器按键失灵","夜灯模块故障"],answer:"B",analysis:""},
+    {title:"Q21-2026系列PRO版相比PLUS版的核心升级功能是？",options:["手动阻尼翻盖","电动阻尼+脚感翻盖","微波感应杀菌","无刷直流水泵"],answer:"B",analysis:""},
+    {title:"Q21-2026系列停电时可通过什么方式冲水？",options:["连接发电机","备用电池盒（10节5号电池）","手动按压水箱","无需处理，无法冲水"],answer:"B",analysis:""},
+    {title:"浴室柜陶瓷盆尺寸偏差在多少范围内属于国标允许？",options:["0.5公分","1公分","2公分","无偏差要求"],answer:"B",analysis:""},
+    {title:"客户签收智能马桶24小时后发现水箱盖破损，应优先采取哪种处理方案？",options:["免费补发水箱盖","补偿50元要求客户自行购买","退货退款并承担运费","建议客户使用胶水修复"],answer:"B",analysis:""},
+    {title:"智能马桶遥控器失灵，经排查非电池问题，下一步应如何操作？",options:["补偿客户100元","转交技术判断","要求客户自费更换","直接补发新遥控器"],answer:"B",analysis:""},
+    {title:"希箭七星管家服务中，同一故障维修几次未解决可换新机？",options:["1次","2次","3次","不提供换新"],answer:"B",analysis:""},
+    {title:"淋浴房玻璃自爆且客户受伤，属于哪类投诉级别？",options:["普通投诉","严重投诉","重大投诉","无需处理"],answer:"C",analysis:""},
+    {title:"普通马桶冲水功能不良，首先应检查？",options:["进水阀过滤网","排水阀链条","水位调试情况","排污管道对准度"],answer:"C",analysis:""},
+    {title:"客户因页面描述不符要求退货，最高可协商的补偿比例是？",options:["5%","10%","15%","20%"],answer:"C",analysis:""},
+    {title:"客户反馈智能马桶自动冲水功能持续触发，经排查脚感模块无异常且未靠墙。根据标准操作规范，下一步应如何处理？",options:["直接更换主板","指导客户拔掉脚感线观察1天","补偿100元了结","判定为客户使用不当"],answer:"B",analysis:""},
+    {title:"客户签收普通马桶72小时后反馈水箱破裂，但外包装完好。根据物流异常处理办法，正确的处理方式是？",options:["免费补发新马桶","要求客户自费处理","补偿50元好评费","安排师傅上门检测"],answer:"B",analysis:""},
+    {title:"客户签收普通马桶72小时后反馈水箱破裂，但外包装完好。根据物流异常处理办法，正确的处理方式是？",options:["免费补发新马桶","要求客户自费处理","补偿50元好评费","安排师傅上门检测"],answer:"B",analysis:""},
+    {title:"客户签收普通马桶72小时后反馈水箱破裂，但外包装完好。根据物流异常处理办法，正确的处理方式是？",options:["免费补发新马桶","要求客户自费处理","补偿50元好评费","安排师傅上门检测"],answer:"B",analysis:""},
+    {title:"师傅安装后马桶底部漏水导致客户地板泡水，经查为密封圈未装好。相关损失应由谁承担？",options:["客户自行承担","安装服务商全额赔偿","工厂承担50%","物流公司赔付"],answer:"B",analysis:""},
+    {title:"安徽客户12月购买的普通马桶出现纵向裂纹，声称未受外力撞击。最可能的原因是？",options:["风惊裂纹（质量问题）","震裂裂纹（物流责任）","温差冻裂（非质保范围）","火裂纹（需塑钢土修补）"],answer:"C",analysis:""},
+    {title:"以下哪项是鉴别陶瓷风惊裂纹的关键依据？",options:["裂纹伴随缺口","烧制后1年内发生","呈无规则放射状","必须漏水才算"],answer:"C",analysis:""},
+    {title:"Q21-2026款智能马桶座温无法加热时，应先检查是否误开启了四季温感功能。",options:["正确","错误"],answer:"A",analysis:""},
+    {title:"SZ19智能马桶泡沫盾功能可以关闭，且泡沫盾的厚度约为19mm。",options:["正确","错误"],answer:"A",analysis:""},
+    {title:"在 315 拦截话术中，客服需要先向客户诚恳道歉、安抚情绪，再承诺跟进处理并争取处理时间。",options:["正确","错误"],answer:"A",analysis:""},
+    {title:"已安装使用的马桶，因无客户想要的功能，可直接办理退换货。",options:["正确","错误"],answer:"B",analysis:""},
+    {title:"客服在挽回差评时，无需将客户情况加急反馈给上级并优先处理问题。",options:["正确","错误"],answer:"B",analysis:""},
+    {title:"希箭R6plus零水压智能坐便器支持自动翻盖功能，产品宽度为390mm。",options:["正确","错误"],answer:"A",analysis:""},
+    {title:"Q21-2026系列MAX版支持微波感应自动翻盖功能！",options:["正确","错误"],answer:"A",analysis:""},
+    {title:"智能马桶漏电问题属于安装责任，需客户自行联系维修。",options:["正确","错误"],answer:"B",analysis:""},
+    {title:"工单登记时，要选择正确产品、如果有多单型号，要选择正确的报障型号，不要随意填写售后商品和型号。",options:["正确","错误"],answer:"A",analysis:""}
+  ],
+  multiple: [
+    {title:"智能马桶的电路保护措施包括？",options:["温度传感器","温控器","保险丝","仅插头防水"],answer:"ABC",analysis:""},
+    {title:"遥控器无反应时可能的原因是？",options:["插头未通电","主机指示灯未亮","用户未着座","遥控器电量不足"],answer:"ABCD",analysis:""},
+    {title:"长时间不使用智能马桶时，需如何操作？",options:["排空水箱和软管内的水","拔掉电源","表面涂抹防冻液","保持通电状态"],answer:"ABC",analysis:""},
+    {title:"排污管安装要求包括？",options:["高出地面0-1cm","周围地面需填平","无需特殊处理","必须预埋移位器"],answer:"AB",analysis:""},
+    {title:"智能马桶的防水等级和防护能力是？",options:["IPX4（防溅水）","IPX5（短时浸水）","仅遥控器防水","整机防水"],answer:"AD",analysis:""},
+    {title:"XR80系列的“螺旋臀洗”技术特点是？",options:["清洗范围从点扩展为面","水流旋转滚动深度清洁","仅支持单一水压","需手动调节水温"],answer:"AB",analysis:""},
+    {title:"以下哪些情况可享受免费上门维修？",options:["质保期内非人为故障","喷头堵塞（非质量问题）","遥控器电池更换","电路板灌胶防水失效"],answer:"AD",analysis:""},
+    {title:"以下哪些是360°泡沫盾的功能？",options:["防溅","防臭","防挂污","抑菌"],answer:"ABCD",analysis:""},
+    {title:"希箭的“以旧换新”方案适用于哪些情况？",options:["过保智能马桶无法维修","客户主观不喜欢旧款外观","产品仍在质保期内但客户想升级","下市型号无配件供应"],answer:"AD",analysis:""},
+    {title:"客户投诉“货未按时送达耽误工期”，售后应如何回应？",options:["道歉并承诺加急补发赠品补偿","推诿责任至物流公司","提供订单物流跟踪记录","建议客户自行联系物流"],answer:"AC",analysis:""},
+    {title:"希箭智能马桶的“自适应大冲力”技术包含哪些模式？",options:["静音冲","强力冲（3倍国标冲力）","智能大小冲","停电冲"],answer:"ABCD",analysis:""},
+    {title:"客户因安装移位器导致冲水不畅，正确的处理建议是？",options:["建议拆除移位器","更换为直冲式马桶","承诺免费维修","推脱为客户使用问题"],answer:"AB",analysis:""},
+    {title:"客户因座圈不缓降投诉，客服可用的标准话术包括？",options:["已为您登记补发阻尼配件","建议您自行购买更换","可补发座圈盖板","这是正常现象，无需处理"],answer:"AC",analysis:""},
+    {title:"泡沫盾不出泡的可能原因是？",options:["功能未开启","泡沫液用完","座圈温度过高","抽液装置损坏"],answer:"ABD",analysis:""},
+    {title:"座圈无法加热的常见原因包括？",options:["节能模式开启","座圈加热端子脱落","喷杆堵塞","座圈组件损坏"],answer:"ABD",analysis:""}
+  ],
+  short: [
+    {title:"马桶不停地自动冲水可能是什么原因？如何排查？",answer:"需检查脚感模块是否紧靠墙壁、附近是否有物品干扰、表面是否有水渍污垢。若无问题，可拔掉脚感线观察两天，若问题消失则需更换脚感模块",score:20},
+    {title:"智能马桶底部渗水应如何处理？",answer:"若为商家安装的马桶，需安排师傅重新上门安装；若客户自行安装，需自行联系师傅重新安装",score:20},
+    {title:"智能马桶冬季使用时要注意什么？",answer:"环境温度需≥3℃，若结冰需自然解冻，禁止用热水浇淋",score:20},
+    {title:"安装智能马桶时，若发现电源插座接线'左零右火'不符合国标，可能引发什么风险？应如何处理？",answer:"可能导致触电，必须由电工调整至标准接线（左零右火）。",score:20},
+    {title:"智能马桶安装后玻璃胶固化期多久？期间注意事项？",answer:"固化期为48小时，期间禁止使用马桶。调整位置需小幅度轻调，大幅移动会导致密封失效",score:20}
+  ]
+};
+
+let paper = {single:[], multiple:[], short:[]};
+let userAns = {};
+let userName = "";
+
+// 不重复抽题
+function pick(arr,n){
+  return [...arr].sort(()=>Math.random()-0.5).slice(0,n);
+}
+
+// 生成试卷
+function genPaper(){
+  paper.single = pick(bank.single,12);
+  paper.multiple = pick(bank.multiple,7);
+  paper.short = pick(bank.short,1);
+}
+
+// 渲染试卷
+function render(){
+  let html = ""; let qid=0;
+  html += `<h3>一、单选题（12题×5分）</h3>`;
+  paper.single.forEach(q=>{
+    qid++;
+    html += `<div class="question" id="Q${qid}"><p>${qid}.${q.title}</p><div class="options">`;
+    ["A","B","C","D"].forEach((k,i)=>{
+      if(q.options[i]) html+=`<div class="opt" onclick="selS(${qid},'${k}')">${k}.${q.options[i]}</div>`;
+    });
+    html += `</div></div>`;
+  });
+
+  html += `<h3>二、多选题（7题×8分）</h3>`;
+  paper.multiple.forEach(q=>{
+    qid++;
+    html += `<div class="question" id="Q${qid}"><p>${qid}.${q.title}</p><div class="options">`;
+    ["A","B","C","D"].forEach((k,i)=>{
+      if(q.options[i]) html+=`<div class="opt" onclick="selM(${qid},'${k}')">${k}.${q.options[i]}</div>`;
+    });
+    html += `</div></div>`;
+  });
+
+  html += `<h3>三、简答题（20分）</h3>`;
+  qid++;
+  html += `<div class="question"><p>${qid}.${paper.short[0].title}</p><textarea id="Q${qid}"></textarea></div>`;
+  document.getElementById("paper").innerHTML = html;
+}
+
+// 单选
+function selS(qid,v){
+  document.querySelectorAll(`#Q${qid} .opt`).forEach(o=>o.classList.remove("selected"));
+  event.target.classList.add("selected");
+  userAns[qid] = v;
+}
+
+// 多选
+function selM(qid,v){
+  event.target.classList.toggle("selected");
+  if(!userAns[qid]) userAns[qid] = "";
+  userAns[qid] = userAns[qid].includes(v) ? userAns[qid].replace(v,"") : userAns[qid]+v;
+}
+
+// 开始
+document.getElementById("startBtn").onclick = ()=>{
+  userName = document.getElementById("userName").value.trim();
+  if(!userName){alert("请输入姓名");return}
+  genPaper();
+  render();
+  document.getElementById("startBtn").style.display = "none";
+  document.getElementById("paper").style.display = "block";
+  document.getElementById("submitBtn").style.display = "block";
+};
+
+// 交卷
+document.getElementById("submitBtn").onclick = ()=>{
+  let score = 0;
+  let qid = 0;
+  let shortAns = document.getElementById(`Q${20}`).value.trim() || "未作答";
+  let shortScore = shortAns ? 20 : 0;
+
+  // 只判分，不展示题目详情
+  paper.single.forEach(q=>{
+    qid++;
+    let u = userAns[qid] || "";
+    if(u === q.answer) score +=5;
+  });
+
+  paper.multiple.forEach(q=>{
+    qid++;
+    let u = [...(userAns[qid]||"")].sort().join("");
+    let a = [...q.answer].sort().join("");
+    if(u === a) score +=8;
+  });
+
+  score += shortScore;
+
+  // 只显示姓名 + 总分
+  let res = `<h2>${userName} 考试完成</h2>`;
+  res += `<h1 style="color:#1890ff; font-size:42px; margin:20px 0">总分：${score} 分</h1>`;
+
+  // 保存记录不变
+  let records = JSON.parse(localStorage.getItem("examRecords")||"[]");
+  records.push({
+    name:userName, time:new Date().toLocaleString(),
+    single:paper.single, multiple:paper.multiple, short:paper.short[0],
+    userAns:userAns, shortText:shortAns, shortScore:shortScore, total:score
+  });
+  localStorage.setItem("examRecords",JSON.stringify(records));
+
+  document.getElementById("result").innerHTML = res;
+  document.getElementById("result").style.display = "block";
+  document.getElementById("submitBtn").style.display = "none";
+};
+</script>
+</body>
+</html>

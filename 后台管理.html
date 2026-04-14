@@ -1,0 +1,196 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>竞赛管理后台 - 逐题批改+明细+导出</title>
+<style>
+*{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto}
+body{padding:20px;background:#f7f8fa;}
+.container{max-width:1000px;margin:0 auto;background:#fff;padding:24px;border-radius:12px;box-shadow:0 2px 10px #0001}
+.title{text-align:center;color:#2c3e50}
+.login-bar{margin-bottom:20px;display:flex;gap:10px;align-items:center}
+input{padding:8px 12px;border:1px solid #ddd;border-radius:6px}
+button{padding:8px 16px;border:none;border-radius:6px;background:#1890ff;color:white;cursor:pointer}
+.export-btn{background:#07c160}
+.save-btn{background:#ff9500;margin-top:10px}
+.user-card{border:1px solid #eee;border-radius:10px;padding:16px;margin:16px 0}
+.user-header{font-weight:bold;font-size:16px;color:#333;margin-bottom:10px}
+.q-item{padding:10px;border-bottom:1px solid #f1f1f1;margin-bottom:8px}
+.q-title{font-weight:bold;margin-bottom:4px}
+.q-row{display:flex;gap:12px;margin:4px 0;color:#444}
+.q-score{width:70px}
+.total-row{margin-top:12px;font-size:16px;font-weight:bold;color:#1890ff}
+.correct{color:#07c160;font-weight:bold}
+.wrong{color:#ff4d4f;font-weight:bold}
+.wait{color:#faad14;font-weight:bold}
+</style>
+</head>
+<body>
+<div class="container">
+  <h2 class="title">客户满意度实操竞赛 · 管理后台</h2>
+  <div class="login-bar">
+    <input type="password" id="pwd" placeholder="请输入管理员密码" value="123456">
+    <button onclick="login()">登录</button>
+    <button class="export-btn" id="exportBtn" style="display:none" onclick="exportAll()">导出全部明细Excel</button>
+  </div>
+  <div id="adminMain" style="display:none"></div>
+</div>
+
+<script>
+let records = [];
+
+// 登录
+function login() {
+  if (document.getElementById("pwd").value !== "123456") {
+    alert("密码错误！");
+    return;
+  }
+  records = JSON.parse(localStorage.getItem("examRecords") || "[]");
+  document.getElementById("adminMain").style.display = "block";
+  document.getElementById("exportBtn").style.display = "inline-block";
+  renderAllUsers();
+}
+
+// 渲染所有考生
+function renderAllUsers() {
+  let html = "";
+  records.forEach((user, idx) => {
+    html += `<div class="user-card" id="user_${idx}">
+      <div class="user-header">${idx+1}、考生：${user.name}｜考试时间：${user.time}</div>
+      <div id="detail_${idx}"></div>
+      <button class="save-btn" onclick="saveOneUser(${idx})">保存该考生所有修改</button>
+    </div>`;
+  });
+  document.getElementById("adminMain").innerHTML = html || "<p>暂无考试记录</p>";
+  records.forEach((_, idx) => renderOneUserDetail(idx));
+}
+
+// 渲染单个考生逐题明细（已自动判对错）
+function renderOneUserDetail(idx) {
+  const u = records[idx];
+  let html = "";
+  let qid = 0;
+
+  // 单选题 12题
+  html += `<div style="margin:10px 0"><strong>一、单选题（12题×5分）</strong></div>`;
+  u.single.forEach((q, i) => {
+    qid++;
+    const ua = u.userAns[qid] || "未作答";
+    const ca = q.answer;
+    const isCorrect = ua === ca;
+    const defScore = isCorrect ? 5 : 0;
+    const judge = isCorrect ? '<span class="correct">正确</span>' : '<span class="wrong">错误</span>';
+    
+    html += `<div class="q-item">
+      <div class="q-title">${qid}. ${q.title}</div>
+      <div class="q-row">考生答案：${ua}｜正确答案：${ca}｜结果：${judge}</div>
+      <div class="q-row">本题得分：<input type="number" class="q-score" id="s_${idx}_${qid}" value="${defScore}" oninput="calcTotal(${idx})"> 分</div>
+    </div>`;
+  });
+
+  // 多选题 7题
+  html += `<div style="margin:10px 0"><strong>二、多选题（7题×8分）</strong></div>`;
+  u.multiple.forEach((q, i) => {
+    qid++;
+    const ua = [...(u.userAns[qid] || "")].sort().join("") || "未作答";
+    const ca = [...q.answer].sort().join("");
+    const isCorrect = ua === ca;
+    const defScore = isCorrect ? 8 : 0;
+    const judge = isCorrect ? '<span class="correct">正确</span>' : '<span class="wrong">错误</span>';
+    
+    html += `<div class="q-item">
+      <div class="q-title">${qid}. ${q.title}</div>
+      <div class="q-row">考生答案：${ua}｜正确答案：${ca}｜结果：${judge}</div>
+      <div class="q-row">本题得分：<input type="number" class="q-score" id="s_${idx}_${qid}" value="${defScore}" oninput="calcTotal(${idx})"> 分</div>
+    </div>`;
+  });
+
+  // 简答题 1题
+  qid++;
+  html += `<div style="margin:10px 0"><strong>三、简答题（1题×20分）</strong></div>`;
+  html += `<div class="q-item">
+    <div class="q-title">${qid}. ${u.short.title}</div>
+    <div class="q-row">考生回答：${u.shortText || "未作答"}</div>
+    <div class="q-row">参考答案：${u.short.answer}</div>
+    <div class="q-row">评卷状态：<span class="wait">待评卷</span></div>
+    <div class="q-row">本题得分：<input type="number" class="q-score" id="s_${idx}_${qid}" value="${u.shortScore}" oninput="calcTotal(${idx})"> 分</div>
+  </div>`;
+
+  html += `<div class="total-row" id="total_${idx}">总分：${u.total} 分</div>`;
+  document.getElementById(`detail_${idx}`).innerHTML = html;
+}
+
+// 实时计算总分
+function calcTotal(idx) {
+  const inputs = document.querySelectorAll(`#user_${idx} .q-score`);
+  let total = 0;
+  inputs.forEach(inp => total += parseInt(inp.value) || 0);
+  document.getElementById(`total_${idx}`).innerText = `总分：${total} 分`;
+}
+
+// 保存考生修改
+function saveOneUser(idx) {
+  const u = records[idx];
+  let qid = 0;
+  let total = 0;
+
+  function readScore() {
+    qid++;
+    const v = parseInt(document.getElementById(`s_${idx}_${qid}`).value) || 0;
+    total += v;
+    return v;
+  }
+
+  u.single.forEach(() => readScore());
+  u.multiple.forEach(() => readScore());
+  u.shortScore = readScore();
+  u.total = total;
+
+  localStorage.setItem("examRecords", JSON.stringify(records));
+  alert("保存成功！");
+  renderOneUserDetail(idx);
+}
+
+// 导出Excel（已加入：正确/错误/待评卷）
+function exportAll() {
+  let csv = "姓名,考试时间,题型,题号,题目,考生答案,正确答案,评卷结果,本题得分,总分\n";
+  
+  records.forEach(u => {
+    let qid = 0;
+
+    // 导出单选题
+    u.single.forEach(q => {
+      qid++;
+      const ua = u.userAns[qid] || "未作答";
+      const ca = q.answer;
+      const judge = ua === ca ? "正确" : "错误";
+      const sc = document.getElementById(`s_${records.indexOf(u)}_${qid}`)?.value || 0;
+      csv += `${u.name},${u.time},单选题,${qid},"${q.title}","${ua}","${ca}",${judge},${sc},${u.total}\n`;
+    });
+
+    // 导出多选题
+    u.multiple.forEach(q => {
+      qid++;
+      const ua = [...(u.userAns[qid] || "")].sort().join("") || "未作答";
+      const ca = [...q.answer].sort().join("");
+      const judge = ua === ca ? "正确" : "错误";
+      const sc = document.getElementById(`s_${records.indexOf(u)}_${qid}`)?.value || 0;
+      csv += `${u.name},${u.time},多选题,${qid},"${q.title}","${ua}","${ca}",${judge},${sc},${u.total}\n`;
+    });
+
+    // 导出简答题
+    qid++;
+    const sc = u.shortScore;
+    csv += `${u.name},${u.time},简答题,${qid},"${u.short.title}","${u.shortText}","${u.short.answer}",待评卷,${sc},${u.total}\n`;
+  });
+
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "竞赛考试全明细_" + new Date().toLocaleDateString() + ".csv";
+  a.click();
+}
+</script>
+</body>
+</html>
