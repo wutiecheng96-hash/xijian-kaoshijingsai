@@ -40,19 +40,22 @@ button{padding:8px 16px;border:none;border-radius:6px;background:#1890ff;color:w
 <script>
 let records = [];
 
-// 登录
-function login() {
+async function login() {
   if (document.getElementById("pwd").value !== "123456") {
     alert("密码错误！");
     return;
   }
-  records = JSON.parse(localStorage.getItem("examRecords") || "[]");
+  try {
+    const res = await fetch("https://exam-api.deno.dev/list");
+    records = await res.json();
+  } catch(e){
+    records = [];
+  }
   document.getElementById("adminMain").style.display = "block";
   document.getElementById("exportBtn").style.display = "inline-block";
   renderAllUsers();
 }
 
-// 渲染所有考生
 function renderAllUsers() {
   let html = "";
   records.forEach((user, idx) => {
@@ -66,13 +69,11 @@ function renderAllUsers() {
   records.forEach((_, idx) => renderOneUserDetail(idx));
 }
 
-// 渲染单个考生逐题明细（已自动判对错）
 function renderOneUserDetail(idx) {
   const u = records[idx];
   let html = "";
   let qid = 0;
 
-  // 单选题 12题
   html += `<div style="margin:10px 0"><strong>一、单选题（12题×5分）</strong></div>`;
   u.single.forEach((q, i) => {
     qid++;
@@ -89,7 +90,6 @@ function renderOneUserDetail(idx) {
     </div>`;
   });
 
-  // 多选题 7题
   html += `<div style="margin:10px 0"><strong>二、多选题（7题×8分）</strong></div>`;
   u.multiple.forEach((q, i) => {
     qid++;
@@ -106,7 +106,6 @@ function renderOneUserDetail(idx) {
     </div>`;
   });
 
-  // 简答题 1题
   qid++;
   html += `<div style="margin:10px 0"><strong>三、简答题（1题×20分）</strong></div>`;
   html += `<div class="q-item">
@@ -121,7 +120,6 @@ function renderOneUserDetail(idx) {
   document.getElementById(`detail_${idx}`).innerHTML = html;
 }
 
-// 实时计算总分
 function calcTotal(idx) {
   const inputs = document.querySelectorAll(`#user_${idx} .q-score`);
   let total = 0;
@@ -129,8 +127,7 @@ function calcTotal(idx) {
   document.getElementById(`total_${idx}`).innerText = `总分：${total} 分`;
 }
 
-// 保存考生修改
-function saveOneUser(idx) {
+async function saveOneUser(idx) {
   const u = records[idx];
   let qid = 0;
   let total = 0;
@@ -147,19 +144,23 @@ function saveOneUser(idx) {
   u.shortScore = readScore();
   u.total = total;
 
-  localStorage.setItem("examRecords", JSON.stringify(records));
+  try {
+    await fetch("https://exam-api.deno.dev/update", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({id:u.id, data:u})
+    });
+  }catch(e){}
   alert("保存成功！");
   renderOneUserDetail(idx);
 }
 
-// 导出Excel（已加入：正确/错误/待评卷）
 function exportAll() {
   let csv = "姓名,考试时间,题型,题号,题目,考生答案,正确答案,评卷结果,本题得分,总分\n";
   
   records.forEach(u => {
     let qid = 0;
 
-    // 导出单选题
     u.single.forEach(q => {
       qid++;
       const ua = u.userAns[qid] || "未作答";
@@ -169,7 +170,6 @@ function exportAll() {
       csv += `${u.name},${u.time},单选题,${qid},"${q.title}","${ua}","${ca}",${judge},${sc},${u.total}\n`;
     });
 
-    // 导出多选题
     u.multiple.forEach(q => {
       qid++;
       const ua = [...(u.userAns[qid] || "")].sort().join("") || "未作答";
@@ -179,7 +179,6 @@ function exportAll() {
       csv += `${u.name},${u.time},多选题,${qid},"${q.title}","${ua}","${ca}",${judge},${sc},${u.total}\n`;
     });
 
-    // 导出简答题
     qid++;
     const sc = u.shortScore;
     csv += `${u.name},${u.time},简答题,${qid},"${u.short.title}","${u.shortText}","${u.short.answer}",待评卷,${sc},${u.total}\n`;
@@ -188,12 +187,8 @@ function exportAll() {
   const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = "竞赛考试全明细_" + new Date().toLocaleDateString() + ".csv";
+  a.download = "竞赛考试全明细.csv";
   a.click();
-}
-</script>
-</body>
-</html>
 }
 </script>
 </body>
