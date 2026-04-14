@@ -6,22 +6,22 @@
 <title>竞赛管理后台 - 逐题批改+明细+导出</title>
 <style>
 *{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto}
-body{padding:20px;background:#f7f8fa;}
-.container{max-width:1000px;margin:0 auto;background:#fff;padding:24px;border-radius:12px;box-shadow:0 2px 10px #0001}
+body{padding:20px;background:#f7f8fa;margin:0}
+.container{max-width:1000px;margin:0 auto;background:#fff;padding:24px;border-radius:12px;box-shadow:0 2px 10px #00000008}
 .title{text-align:center;color:#2c3e50}
 .login-bar{margin-bottom:20px;display:flex;gap:10px;align-items:center}
-input{padding:8px 12px;border:1px solid #ddd;border-radius:6px}
-button{padding:8px 16px;border:none;border-radius:6px;background:#1890ff;color:white;cursor:pointer}
-.export-btn{background:#07c160}
+input{padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px}
+button{padding:8px 16px;border:none;border-radius:6px;background:#1890ff;color:#fff;cursor:pointer;font-size:14px}
+.export-btn{background:#00b42a}
 .save-btn{background:#ff9500;margin-top:10px}
 .user-card{border:1px solid #eee;border-radius:10px;padding:16px;margin:16px 0}
 .user-header{font-weight:bold;font-size:16px;color:#333;margin-bottom:10px}
 .q-item{padding:10px;border-bottom:1px solid #f1f1f1;margin-bottom:8px}
 .q-title{font-weight:bold;margin-bottom:4px}
 .q-row{display:flex;gap:12px;margin:4px 0;color:#444}
-.q-score{width:70px}
+.score-input{width:70px}
 .total-row{margin-top:12px;font-size:16px;font-weight:bold;color:#1890ff}
-.correct{color:#07c160;font-weight:bold}
+.correct{color:#00b42a;font-weight:bold}
 .wrong{color:#ff4d4f;font-weight:bold}
 .wait{color:#faad14;font-weight:bold}
 </style>
@@ -38,18 +38,43 @@ button{padding:8px 16px;border:none;border-radius:6px;background:#1890ff;color:w
 </div>
 
 <script>
+const GIST_ID = "704a494fc7ee9d400e9a26a640055607";
+const ADMIN_PWD = "123456";
+
 let records = [];
 
+async function getRecords(){
+  const res = await fetch(`https://api.github.com/gists/${GIST_ID}`);
+  const data = await res.json();
+  return JSON.parse(data.files["exam-records.json"].content || "[]");
+}
+
+async function saveRecords(records){
+  const body = {
+    files: {
+      "exam-records.json": {
+        content: JSON.stringify(records, null, 2)
+      }
+    }
+  };
+  await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+}
+
 async function login() {
-  if (document.getElementById("pwd").value !== "123456") {
+  const pwd = document.getElementById("pwd").value;
+  if (pwd !== ADMIN_PWD) {
     alert("密码错误！");
     return;
   }
   try {
-    const res = await fetch("https://exam-api.deno.dev/list");
-    records = await res.json();
+    records = await getRecords();
   } catch(e){
     records = [];
+    alert("网络异常，仅加载本地缓存");
   }
   document.getElementById("adminMain").style.display = "block";
   document.getElementById("exportBtn").style.display = "inline-block";
@@ -57,137 +82,101 @@ async function login() {
 }
 
 function renderAllUsers() {
+  const main = document.getElementById("adminMain");
+  if(records.length === 0){
+    main.innerHTML = "<p style='font-size:18px;color:#666'>暂无考试记录</p>";
+    return;
+  }
   let html = "";
   records.forEach((user, idx) => {
     html += `<div class="user-card" id="user_${idx}">
       <div class="user-header">${idx+1}、考生：${user.name}｜考试时间：${user.time}</div>
       <div id="detail_${idx}"></div>
-      <button class="save-btn" onclick="saveOneUser(${idx})">保存该考生所有修改</button>
+      <button class="save-btn" onclick="saveOne(${idx})">保存该考生分数</button>
     </div>`;
   });
-  document.getElementById("adminMain").innerHTML = html || "<p>暂无考试记录</p>";
-  records.forEach((_, idx) => renderOneUserDetail(idx));
+  main.innerHTML = html;
+  records.forEach((u,i)=>renderUserDetail(i));
 }
 
-function renderOneUserDetail(idx) {
+function renderUserDetail(idx){
   const u = records[idx];
   let html = "";
   let qid = 0;
-
-  html += `<div style="margin:10px 0"><strong>一、单选题（12题×5分）</strong></div>`;
-  u.single.forEach((q, i) => {
+  html += `<div class="q-item"><b>一、单选题（每题5分）</b></div>`;
+  u.single.forEach(q=>{
     qid++;
-    const ua = u.userAns[qid] || "未作答";
-    const ca = q.answer;
-    const isCorrect = ua === ca;
-    const defScore = isCorrect ? 5 : 0;
-    const judge = isCorrect ? '<span class="correct">正确</span>' : '<span class="wrong">错误</span>';
-    
+    const ua = u.userAns[qid] || "";
+    const ok = ua === q.answer;
     html += `<div class="q-item">
       <div class="q-title">${qid}. ${q.title}</div>
-      <div class="q-row">考生答案：${ua}｜正确答案：${ca}｜结果：${judge}</div>
-      <div class="q-row">本题得分：<input type="number" class="q-score" id="s_${idx}_${qid}" value="${defScore}" oninput="calcTotal(${idx})"> 分</div>
+      <div class="q-row">你的答案：${ua || "未答"}</div>
+      <div class="q-row">正确答案：${q.answer}</div>
+      <div class="q-row ${ok?'correct':'wrong'}">${ok?'正确':'错误'} | 得分：${ok?5:0}</div>
     </div>`;
   });
 
-  html += `<div style="margin:10px 0"><strong>二、多选题（7题×8分）</strong></div>`;
-  u.multiple.forEach((q, i) => {
+  html += `<div class="q-item"><b>二、多选题（每题≈2.86分）</b></div>`;
+  u.multiple.forEach(q=>{
     qid++;
-    const ua = [...(u.userAns[qid] || "")].sort().join("") || "未作答";
-    const ca = [...q.answer].sort().join("");
-    const isCorrect = ua === ca;
-    const defScore = isCorrect ? 8 : 0;
-    const judge = isCorrect ? '<span class="correct">正确</span>' : '<span class="wrong">错误</span>';
-    
+    const ua = u.userAns[qid] || "";
+    const ok = ua === q.answer;
     html += `<div class="q-item">
       <div class="q-title">${qid}. ${q.title}</div>
-      <div class="q-row">考生答案：${ua}｜正确答案：${ca}｜结果：${judge}</div>
-      <div class="q-row">本题得分：<input type="number" class="q-score" id="s_${idx}_${qid}" value="${defScore}" oninput="calcTotal(${idx})"> 分</div>
+      <div class="q-row">你的答案：${ua || "未答"}</div>
+      <div class="q-row">正确答案：${q.answer}</div>
+      <div class="q-row ${ok?'correct':'wrong'}">${ok?'正确':'错误'} | 得分：${ok?(20/7).toFixed(2):0}</div>
     </div>`;
   });
 
   qid++;
-  html += `<div style="margin:10px 0"><strong>三、简答题（1题×20分）</strong></div>`;
+  html += `<div class="q-item"><b>三、简答题（20分）</b></div>`;
   html += `<div class="q-item">
     <div class="q-title">${qid}. ${u.short.title}</div>
-    <div class="q-row">考生回答：${u.shortText || "未作答"}</div>
-    <div class="q-row">参考答案：${u.short.answer}</div>
-    <div class="q-row">评卷状态：<span class="wait">待评卷</span></div>
-    <div class="q-row">本题得分：<input type="number" class="q-score" id="s_${idx}_${qid}" value="${u.shortScore}" oninput="calcTotal(${idx})"> 分</div>
+    <div class="q-row">你的回答：${u.shortText}</div>
+    <div class="q-row">标准：${u.short.answer}</div>
+    <div class="q-row">得分：<input class="score-input" id="short_${idx}" value="${u.shortScore||0}" max="20"></div>
   </div>`;
 
-  html += `<div class="total-row" id="total_${idx}">总分：${u.total} 分</div>`;
+  html += `<div class="total-row">总分：<span id="total_${idx}">${u.total||0}</span> 分</div>`;
   document.getElementById(`detail_${idx}`).innerHTML = html;
 }
 
-function calcTotal(idx) {
-  const inputs = document.querySelectorAll(`#user_${idx} .q-score`);
+function saveOne(idx){
+  const shortScore = parseInt(document.getElementById(`short_${idx}`).value)||0;
   let total = 0;
-  inputs.forEach(inp => total += parseInt(inp.value) || 0);
-  document.getElementById(`total_${idx}`).innerText = `总分：${total} 分`;
-}
-
-async function saveOneUser(idx) {
-  const u = records[idx];
-  let qid = 0;
-  let total = 0;
-
-  function readScore() {
+  let qid=0;
+  records[idx].single.forEach(q=>{
     qid++;
-    const v = parseInt(document.getElementById(`s_${idx}_${qid}`).value) || 0;
-    total += v;
-    return v;
-  }
-
-  u.single.forEach(() => readScore());
-  u.multiple.forEach(() => readScore());
-  u.shortScore = readScore();
-  u.total = total;
-
-  try {
-    await fetch("https://exam-api.deno.dev/update", {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({id:u.id, data:u})
-    });
-  }catch(e){}
-  alert("保存成功！");
-  renderOneUserDetail(idx);
-}
-
-function exportAll() {
-  let csv = "姓名,考试时间,题型,题号,题目,考生答案,正确答案,评卷结果,本题得分,总分\n";
-  
-  records.forEach(u => {
-    let qid = 0;
-
-    u.single.forEach(q => {
-      qid++;
-      const ua = u.userAns[qid] || "未作答";
-      const ca = q.answer;
-      const judge = ua === ca ? "正确" : "错误";
-      const sc = document.getElementById(`s_${records.indexOf(u)}_${qid}`)?.value || 0;
-      csv += `${u.name},${u.time},单选题,${qid},"${q.title}","${ua}","${ca}",${judge},${sc},${u.total}\n`;
-    });
-
-    u.multiple.forEach(q => {
-      qid++;
-      const ua = [...(u.userAns[qid] || "")].sort().join("") || "未作答";
-      const ca = [...q.answer].sort().join("");
-      const judge = ua === ca ? "正确" : "错误";
-      const sc = document.getElementById(`s_${records.indexOf(u)}_${qid}`)?.value || 0;
-      csv += `${u.name},${u.time},多选题,${qid},"${q.title}","${ua}","${ca}",${judge},${sc},${u.total}\n`;
-    });
-
-    qid++;
-    const sc = u.shortScore;
-    csv += `${u.name},${u.time},简答题,${qid},"${u.short.title}","${u.shortText}","${u.short.answer}",待评卷,${sc},${u.total}\n`;
+    if(records[idx].userAns[qid]===q.answer) total+=5;
   });
+  records[idx].multiple.forEach(q=>{
+    qid++;
+    if(records[idx].userAns[qid]===q.answer) total+=20/7;
+  });
+  total += shortScore;
+  records[idx].shortScore = shortScore;
+  records[idx].total = Math.round(total);
+  saveRecords(records);
+  document.getElementById(`total_${idx}`).textContent = Math.round(total);
+  alert("保存成功！");
+}
 
-  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+function exportAll(){
+  let csv = "序号,姓名,考试时间,单选题得分,多选题得分,简答题得分,总分\n";
+  records.forEach((u,i)=>{
+    let s=0,m=0;
+    let qid=0;
+    u.single.forEach(q=>{qid++;if(u.userAns[qid]===q.answer)s+=5;});
+    u.multiple.forEach(q=>{qid++;if(u.userAns[qid]===q.answer)m+=20/7;});
+    const sh = u.shortScore||0;
+    const total = Math.round(s+m+sh);
+    csv += `${i+1},${u.name},${u.time},${s},${m.toFixed(2)},${sh},${total}\n`;
+  });
+  const blob = new Blob([csv],{type:"text/csv;charset=utf-8"});
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "竞赛考试全明细.csv";
+  a.href=URL.createObjectURL(blob);
+  a.download="竞赛成绩明细.csv";
   a.click();
 }
 </script>
